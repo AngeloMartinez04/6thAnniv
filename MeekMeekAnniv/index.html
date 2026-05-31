@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Happy Anniversary, My Favorite Person</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Great+Vibes&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['Cormorant Garamond', 'serif'],
+            script: ['Great Vibes', 'cursive'],
+            sans: ['DM Sans', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'DM Sans', sans-serif; background: #fff8f8; color: #3d2b2b; overflow-x: hidden; }
+
+    .hero-bg {
+      background: linear-gradient(135deg, #ffe4ec, #ffd6e7, #fce7f3, #f9d5e5, #ffedf2);
+      background-size: 400% 400%;
+      animation: gradShift 12s ease infinite;
+    }
+    @keyframes gradShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .hearts-canvas { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .heart {
+      position: absolute; font-size: 1.1rem; opacity: 0;
+      animation: floatUp linear infinite; user-select: none;
+    }
+    @keyframes floatUp {
+      0%   { opacity: 0;   transform: translateY(0) scale(0.6); }
+      10%  { opacity: 0.6; }
+      90%  { opacity: 0.3; }
+      100% { opacity: 0;   transform: translateY(-110vh) scale(1.1); }
+    }
+
+    .fade-in { opacity: 0; transform: translateY(36px); transition: opacity 0.7s ease, transform 0.7s ease; }
+    .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+    .petal-divider { text-align: center; font-size: 1.5rem; letter-spacing: 0.4rem; color: #e89fb4; margin: 0.5rem 0; }
+
+    .timer-card {
+      background: rgba(255,255,255,0.65);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,192,210,0.5);
+      border-radius: 18px;
+      box-shadow: 0 8px 32px rgba(200,80,110,0.08);
+    }
+
+    .timeline-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, #fce7f3, #e879a0, #fce7f3); transform: translateX(-50%); }
+
+    .polaroid {
+      background: white; padding: 10px 10px 36px;
+      box-shadow: 0 8px 28px rgba(180,60,90,0.13), 0 2px 6px rgba(0,0,0,0.06);
+      transition: transform 0.4s cubic-bezier(.22,.68,0,1.2), box-shadow 0.4s ease;
+      cursor: pointer; border-radius: 3px;
+    }
+    .polaroid:hover, .polaroid.tapped {
+      transform: rotate(0deg) scale(1.07) !important;
+      box-shadow: 0 20px 50px rgba(180,60,90,0.22); z-index: 10;
+    }
+    .polaroid img { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; border-radius: 2px; }
+    .polaroid-caption {
+      position: absolute; inset: 0;
+      background: rgba(255,230,240,0.92);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.3s ease;
+      padding: 12px; text-align: center; border-radius: 2px;
+    }
+    .polaroid:hover .polaroid-caption, .polaroid.tapped .polaroid-caption { opacity: 1; }
+
+    .flip-card { perspective: 900px; cursor: pointer; }
+    .flip-card-inner {
+      position: relative; width: 100%; height: 100%;
+      transition: transform 0.65s cubic-bezier(.4,0,.2,1);
+      transform-style: preserve-3d;
+    }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back {
+      position: absolute; inset: 0;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden;
+      border-radius: 18px;
+    }
+    .flip-back { transform: rotateY(180deg); }
+
+    .coupon { background: white; border: 2px dashed #f9a8c9; border-radius: 20px; transition: opacity 0.4s ease; }
+    .coupon.redeemed { opacity: 0.5; }
+    .coupon-stamp {
+      display: none; transform: rotate(-15deg);
+      color: #e8617a; border: 3px solid #e8617a; border-radius: 8px;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; padding: 2px 6px;
+    }
+    .coupon.redeemed .coupon-stamp { display: inline-block; }
+
+    /* Virtual Bouquet Styles */
+    .bouquet-area {
+      position: relative;
+      height: 250px;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.6), rgba(255,240,245,0.8));
+      border-radius: 16px;
+      overflow: hidden;
+      touch-action: none; /* Prevents scrolling when dragging on mobile */
+    }
+    .flower {
+      position: absolute;
+      transform-origin: center center;
+      cursor: grab;
+      user-select: none;
+      transition: transform 0.15s ease-out; /* Smooth rotation */
+      text-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .flower:active, .flower.grabbing {
+      cursor: grabbing;
+      transition: none; /* Disable transition while dragging for instant feedback */
+    }
+
+    .letter-paper {
+      background: #fffcfd; border: 1px solid #fce7f3; border-radius: 4px;
+      box-shadow: 0 4px 28px rgba(200,80,110,0.07), inset 0 0 80px rgba(255,240,248,0.6);
+    }
+    .letter-lines {
+      background-image: repeating-linear-gradient(transparent, transparent 31px, #fce7f3 31px, #fce7f3 32px);
+      background-position: 0 48px;
+    }
+
+    .sig-path {
+      stroke-dasharray: 400; stroke-dashoffset: 400;
+      animation: drawSig 2.5s ease forwards; animation-delay: 0.5s;
+    }
+    @keyframes drawSig { to { stroke-dashoffset: 0; } }
+
+    #music-btn {
+      position: fixed; bottom: 24px; right: 20px; z-index: 999;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: linear-gradient(135deg, #f9a8c9, #e879a0);
+      border: none; box-shadow: 0 6px 20px rgba(232,90,145,0.45);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: transform 0.2s;
+    }
+    #music-btn:hover { transform: scale(1.1); }
+    #music-btn svg { width: 22px; height: 22px; fill: white; }
+
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(60,10,20,0.55); backdrop-filter: blur(4px);
+      z-index: 1000; align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff8fb; border-radius: 24px; padding: 32px 28px;
+      max-width: 340px; width: 90%; text-align: center;
+      box-shadow: 0 24px 60px rgba(200,60,100,0.2);
+      animation: popIn 0.4s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes popIn { from { transform: scale(0.75); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    #lightbox {
+      display: none; position: fixed; inset: 0;
+      background: rgba(30,5,15,0.85); backdrop-filter: blur(6px);
+      z-index: 1100; align-items: center; justify-content: center;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img { max-width: 92vw; max-height: 80vh; border-radius: 6px; box-shadow: 0 24px 80px rgba(0,0,0,0.5); }
+  </style>
+</head>
+<body>
+
+<script type="application/json" id="site-data">
+{
+  "startDate": "2020-06-01T00:00:00+10:10",
+
+  "milestones": [
+    {
+      "date": "June 01 2020",
+      "title": "The Beginning ",
+      "desc": "The universe conspired to bring us together. And I am so glad it did."
+    },
+    {
+      "date": "June 26 2023",
+      "title": "Our First Real Date",
+      "desc": "We talked for hours and I completely lost track of time - the best kind of lost."
+    },
+    {
+      "date": "July 01 2025",
+      "title": "Our First Kiss",
+      "desc": "The world completely went quiet around us, and for a split second, it felt like time stood still. A moment I'll keep in my heart forever."
+    },
+    {
+      "date": "June 01 2025",
+      "title": "Together for half a decade",
+      "desc": "Five years of beautiful chaos, quiet moments, and a love that has only grown deeper with time. Half a decade of you being my favorite part of every day."
+    },
+    {
+      "date": "June 01 2026",
+      "title": "6th Year",
+      "desc": "6 whole years of choosing each other. Already looking forward to a lifetime more."
+    }
+  ],
+
+ "photos": [
+  { "src": "images/picture1.webp", "caption": "Our favorite animated movie" },
+  { "src": "images/picture2.webp", "caption": "Our official first date" },
+  { "src": "images/picture3.webp", "caption": "Home feels like you" },
+  { "src": "images/picture4.webp", "caption": "Date with lo" },
+  { "src": "images/picture5.webp", "caption": "Family Date w/ our Child" },
+  { "src": "images/picture6.webp", "caption": "Every adventure together " },
+  { "src": "images/picture7.webp", "caption": "Making memories with you " },
+  { "src": "images/picture8.webp", "caption": "Dinner w/ just you and me " },
+  { "src": "images/picture9.webp", "caption": "Mag-asawa na." }
+],
+
+  "reasons": [
+    { "icon": "\u2728", "front": "Your Laugh",    "back": "It is the most contagious, beautiful sound. I could hear it forever and never get tired." },
+    { "icon": "\ud83c\udf19", "front": "Late Nights",   "back": "Every late-night conversation with you is my favorite place to be." },
+    { "icon": "\ud83c\udf38", "front": "Your Kindness", "back": "You love people so quietly, so completely. It is one of the most beautiful things about you." },
+    { "icon": "\ud83d\udcaa", "front": "Your Strength", "back": "You face the hard things with such quiet grace. I am in awe of you every day." },
+    { "icon": "\ud83c\udfb5", "front": "Your Taste",    "back": "You introduced me to so many things I now love. You have expanded my whole world." },
+    { "icon": "\ud83c\udfe1", "front": "Home",          "back": "Wherever you are feels like home to me. That is the simplest and truest thing I know." }
+  ],
+
+  "coupons": [
+    {
+      "emoji": "\ud83c\udf66",
+      "title": "Date of your choice",
+      "desc": "Valid for one spontaneous date, anywhere you like. No questions asked.",
+      "expiry": "Never expires"
+    },
+    {
+      "emoji": "\ud83c\udfac",
+      "title": "Movie Night - Your Pick",
+      "desc": "One full movie night, your choice, no vetoes allowed. Snacks included.",
+      "expiry": "One-time use"
+    },
+    {
+      "emoji": "\ud83d\udc86",
+      "title": "Shoulder Rub on Demand",
+      "desc": "Redeem anytime for a proper, no-complaints, extended shoulder and back rub.",
+      "expiry": "Unlimited uses"
+    }
+  ]
+}
+</script>
+
+<div id="envelope-overlay" class="fixed inset-0 z-[9999] bg-rose-50 flex flex-col items-center justify-center transition-all duration-1000 ease-in-out">
+  <div class="relative z-10 text-center px-6 max-w-md w-full" id="envelope-content">
+    
+    <div class="text-4xl mb-6 animate-bounce">💌</div>
+    
+    <div class="bg-white p-10 rounded-2xl shadow-2xl shadow-rose-200 border border-rose-100">
+      <p class="font-sans text-xs text-rose-400 uppercase tracking-widest mb-3">To my love</p>
+      <h2 class="font-serif text-3xl text-rose-800 mb-6">Robina Meekah</h2>
+      
+      <div class="w-16 h-px bg-rose-200 mx-auto mb-6"></div>
+      
+      <p class="font-sans text-sm text-rose-500 mb-8 italic">
+        "Strictly to be opened on exactly<br>June 01, 12:00 AM"
+      </p>
+      
+      <button onclick="unsealEnvelope()" class="relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-sans font-medium tracking-tighter text-white bg-rose-400 rounded-full group hover:bg-rose-500 transition-all duration-300 shadow-lg shadow-rose-200">
+        <span class="absolute w-0 h-0 transition-all duration-500 ease-out bg-rose-600 rounded-full group-hover:w-56 group-hover:h-56"></span>
+        <span class="relative z-10 flex items-center gap-2">
+          Tap to unseal <span class="text-lg">✨</span>
+        </span>
+      </button>
+    </div>
+  </div>
+  
+  <div class="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
+    <div class="absolute top-10 left-10 text-2xl animate-pulse">🌸</div>
+    <div class="absolute bottom-20 right-10 text-2xl animate-pulse" style="animation-delay: 1s;">✨</div>
+    <div class="absolute top-1/3 right-20 text-3xl animate-pulse" style="animation-delay: 2s;">💖</div>
+  </div>
+</div>
+
+<audio id="bg-music" loop preload="none">
+  <source src="audio/song.mp3" type="audio/mpeg">
+</audio>
+
+<button id="music-btn" aria-label="Toggle music">
+  <svg id="play-icon"  viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+  <svg id="pause-icon" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+</button>
+
+<section class="hero-bg relative min-h-screen flex flex-col items-center justify-center px-6 py-16 text-center overflow-hidden">
+  <div class="hearts-canvas" id="hearts-canvas"></div>
+  
+  <div id="hero-reveal" class="relative z-10 max-w-xl mx-auto opacity-0 -translate-y-20 transition-all duration-1000 ease-out">
+    <p class="text-rose-400 text-sm font-medium tracking-widest uppercase mb-4">A little something, just for you</p>
+    <h1 class="font-script text-6xl sm:text-7xl text-rose-600 leading-tight mb-4" style="text-shadow:0 2px 24px rgba(220,80,110,0.18)">
+      Happy Anniversary,
+    </h1>
+    <h2 class="font-serif text-4xl sm:text-5xl font-light text-rose-800 mb-2">My Favorite Person</h2>
+    <p class="font-sans text-base text-rose-500 mt-4 mb-10 leading-relaxed opacity-90">
+      Every second with you is my favorite second. Here's to us.
+    </p>
+    <div class="timer-card rounded-3xl p-6 mb-8">
+      <p class="font-sans text-xs text-rose-400 uppercase tracking-widest mb-4">We have been together for...</p>
+      <div class="grid grid-cols-3 gap-3 sm:grid-cols-6" id="timer-grid"></div>
+      <p class="font-script text-rose-400 text-lg mt-4">...and every moment counts</p>
+    </div>
+    <a href="#story" class="inline-block font-sans text-sm font-medium text-white bg-rose-400 hover:bg-rose-500 transition rounded-full px-8 py-3 shadow-lg shadow-rose-200">
+      Take a walk with me
+    </a>
+  </div>
+</section>
+
+<section id="story" class="py-20 px-4 bg-white">
+  <div class="max-w-2xl mx-auto">
+    <div class="text-center mb-14 fade-in">
+      <p class="text-rose-400 text-xs tracking-widest uppercase font-sans mb-2">Chapter by chapter</p>
+      <h2 class="font-script text-5xl text-rose-700">Our Story</h2>
+      <div class="petal-divider mt-3">&#x1F338; &middot; &#x1F338; &middot; &#x1F338;</div>
+    </div>
+    <div class="relative">
+      <div class="timeline-line hidden sm:block"></div>
+      <div class="absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-rose-100 via-rose-300 to-rose-100 sm:hidden"></div>
+      <div id="milestones" class="flex flex-col gap-10 sm:gap-16 relative"></div>
+    </div>
+  </div>
+</section>
+
+<section id="gallery" class="py-20 px-5 bg-gradient-to-b from-white to-rose-50">
+  <div class="max-w-2xl mx-auto">
+    <div class="text-center mb-14 fade-in">
+      <p class="text-rose-400 text-xs tracking-widest uppercase font-sans mb-2">Memories in frames</p>
+      <h2 class="font-script text-5xl text-rose-700">Our Moments</h2>
+      <div class="petal-divider mt-3">&#x1F4F8; &middot; &#x1F4F8; &middot; &#x1F4F8;</div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-6" id="polaroid-grid"></div>
+  </div>
+</section>
+
+<section id="reasons" class="py-20 px-5 bg-rose-50">
+  <div class="max-w-2xl mx-auto">
+    <div class="text-center mb-14 fade-in">
+      <p class="text-rose-400 text-xs tracking-widest uppercase font-sans mb-2">Tap to reveal</p>
+      <h2 class="font-script text-5xl text-rose-700">Reasons I Love You</h2>
+      <div class="petal-divider mt-3">&#x1F496; &middot; &#x1F496; &middot; &#x1F496;</div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4" id="flip-grid"></div>
+  </div>
+</section>
+
+<section id="coupons" class="py-20 px-5 bg-white">
+  <div class="max-w-2xl mx-auto">
+    <div class="text-center mb-14 fade-in">
+      <p class="text-rose-400 text-xs tracking-widest uppercase font-sans mb-2">Valid forever (almost)</p>
+      <h2 class="font-script text-5xl text-rose-700">Coupons & Gifts</h2>
+      <div class="petal-divider mt-3">&#x1F39F;&#xFE0F; &middot; &#x1F381; &middot; &#x1F39F;&#xFE0F;</div>
+    </div>
+
+    <div class="bg-gradient-to-br from-rose-50 to-pink-50 rounded-3xl shadow-xl shadow-rose-100 p-8 fade-in border border-rose-100 mb-10">
+      <div class="text-center mb-6">
+        <h3 class="font-script text-4xl text-rose-700 mb-2">A Virtual Bouquet</h3>
+        <p class="font-sans text-sm text-rose-500 mb-1">Pick your favorite flowers to assemble your digital gift.</p>
+        <p class="font-sans text-xs text-rose-400 italic">Drag to move, click/tap to rotate!</p>
+      </div>
+      
+      <div class="bouquet-area mb-6 shadow-inner border border-rose-200" id="bouquet-canvas">
+        <div class="absolute bottom-[-10px] left-1/2 transform -translate-x-1/2 text-7xl z-0 opacity-40 select-none pointer-events-none">&#x1F3FA;</div>
+      </div>
+      
+      <div class="flex flex-wrap justify-center gap-3 mb-6">
+        <button onclick="addFlower('&#x1F339;')" class="text-2xl bg-white hover:bg-rose-100 p-3 rounded-full transition shadow-sm border border-rose-100">&#x1F339;</button>
+        <button onclick="addFlower('&#x1F33B;')" class="text-2xl bg-white hover:bg-rose-100 p-3 rounded-full transition shadow-sm border border-rose-100">&#x1F33B;</button>
+        <button onclick="addFlower('&#x1F337;')" class="text-2xl bg-white hover:bg-rose-100 p-3 rounded-full transition shadow-sm border border-rose-100">&#x1F337;</button>
+        <button onclick="addFlower('&#x1F338;')" class="text-2xl bg-white hover:bg-rose-100 p-3 rounded-full transition shadow-sm border border-rose-100">&#x1F338;</button>
+        <button onclick="addFlower('&#x1F33C;')" class="text-2xl bg-white hover:bg-rose-100 p-3 rounded-full transition shadow-sm border border-rose-100">&#x1F33C;</button>
+      </div>
+      
+      <div class="text-center flex flex-col items-center">
+        <button onclick="finishBouquet()" class="font-sans text-sm text-white bg-rose-400 hover:bg-rose-500 transition rounded-full px-7 py-2.5 shadow-md">
+          Unwrap & Tie Ribbon &#x1F380;
+        </button>
+        <p id="bouquet-message" class="hidden text-center font-serif text-rose-600 mt-5 text-xl italic transition-opacity duration-500 opacity-0"></p>
+        
+        <button id="download-bouquet-btn" onclick="downloadBouquet()" class="hidden mt-4 font-sans text-xs font-medium text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 transition rounded-full px-5 py-2 shadow-sm">
+          Save Bouquet as Image &#x1F4BE;
+        </button>
+      </div>
+    </div>
+    <div class="flex flex-col gap-6" id="coupons-grid"></div>
+  </div>
+</section>
+
+<section id="letter" class="py-20 px-5 bg-gradient-to-b from-white to-rose-50">
+  <div class="max-w-xl mx-auto">
+    <div class="text-center mb-14 fade-in">
+      <p class="text-rose-400 text-xs tracking-widest uppercase font-sans mb-2">From my heart to yours</p>
+      <h2 class="font-script text-5xl text-rose-700">A Letter For You</h2>
+    </div>
+    <div class="letter-paper letter-lines rounded-md px-8 py-10 sm:px-14 sm:py-14 fade-in">
+      <p class="font-serif italic text-rose-400 text-sm mb-8">June 01, 2026</p>
+      <p class="font-serif text-rose-900 text-lg leading-9 mb-6">My dearest Meek meek,</p>
+      <div class="font-serif text-rose-800 text-base leading-8 space-y-6">
+        <p>Happy 6th Anniversary, my love.</p>
+        <p>When I look back on these past six years, the things I cherish most aren't just the big milestones, but the quiet, simple moments. Going on dates with you, just being in your presence, and sleeping right beside you—those are the moments I hold closest to my heart. Whenever I am with you, I feel completely at peace. You are my safe place.</p>
+        <p>As I get ready to finally graduate this June 23rd, we are about to step into a whole new chapter of our lives. I want to ask for your patience as we make this transition. I know I don't have much money right now, but I promise you that I am going to work incredibly hard. I am determined to build a life where I can provide for your every need and give you all the wants you deserve.</p>
+        <p>I am doing all of this because I am certain of one thing: I want you to be my wife. Thank you for your endless support, your patience, and for loving me exactly as I am.</p>
+        <p>Happy Anniversary. I love you, always and forever.</p>
+      </div>
+      <p class="font-serif text-rose-800 text-lg mt-10 mb-2">Forever yours,</p>
+      <p class="font-script text-rose-500 text-3xl mt-1">Angelo</p>
+    </div>
+  </div>
+</section>
+
+<footer class="py-12 bg-gradient-to-b from-rose-50 to-pink-100 text-center">
+  <p class="font-script text-rose-400 text-3xl mb-2">Made with love, just for you.</p>
+  <p class="font-sans text-xs text-rose-300 tracking-wide">Built with love by your favorite developer</p>
+</footer>
+
+<div class="modal-overlay" id="coupon-modal" onclick="closeModal('coupon-modal')">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <p class="text-4xl mb-4">&#x1F389;</p>
+    <h3 class="font-serif text-2xl text-rose-800 mb-3">Coupon Redeemed!</h3>
+    <p class="font-sans text-sm text-rose-500 leading-relaxed mb-6">
+      Sending a notification to your boyfriend...<br/>
+      <em>He will be ready for you.</em>
+    </p>
+    <button onclick="closeModal('coupon-modal')" class="font-sans text-sm text-white bg-rose-400 hover:bg-rose-500 transition rounded-full px-7 py-2.5">
+      Yay! Close
+    </button>
+  </div>
+</div>
+
+<div id="lightbox" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" alt="Memory" />
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   LOAD DATA
+═══════════════════════════════════════ */
+var DATA = JSON.parse(document.getElementById('site-data').textContent);
+
+/* ═══════════════════════════════════════
+   TIMER
+═══════════════════════════════════════ */
+function updateTimer() {
+  var start = new Date(DATA.startDate);
+  var now = new Date();
+  var diff = now - start;
+
+  var MS_YEAR  = 1000 * 60 * 60 * 24 * 365.25;
+  var MS_MONTH = 1000 * 60 * 60 * 24 * 30.44;
+  var MS_DAY   = 1000 * 60 * 60 * 24;
+  var MS_HOUR  = 1000 * 60 * 60;
+  var MS_MIN   = 1000 * 60;
+
+  var years   = Math.floor(diff / MS_YEAR);   diff -= years * MS_YEAR;
+  var months  = Math.floor(diff / MS_MONTH);  diff -= months * MS_MONTH;
+  var days    = Math.floor(diff / MS_DAY);    diff -= days * MS_DAY;
+  var hours   = Math.floor(diff / MS_HOUR);   diff -= hours * MS_HOUR;
+  var minutes = Math.floor(diff / MS_MIN);    diff -= minutes * MS_MIN;
+  var seconds = Math.floor(diff / 1000);
+
+  var labels = [
+    { val: years,   lbl: 'Years'   },
+    { val: months,  lbl: 'Months'  },
+    { val: days,    lbl: 'Days'    },
+    { val: hours,   lbl: 'Hours'   },
+    { val: minutes, lbl: 'Minutes' },
+    { val: seconds, lbl: 'Seconds' }
+  ];
+
+  var grid = document.getElementById('timer-grid');
+  if (!grid) { return; }
+
+  if (!grid.children.length) {
+    grid.innerHTML = labels.map(function(item, i) {
+      return '<div class="timer-card rounded-2xl p-3 flex flex-col items-center">' +
+        '<span class="font-serif text-3xl font-semibold text-rose-700" id="t-' + i + '">' +
+          String(item.val).padStart(2, '0') +
+        '</span>' +
+        '<span class="font-sans text-xs uppercase tracking-wider text-rose-400 mt-0.5">' + item.lbl + '</span>' +
+      '</div>';
+    }).join('');
+  } else {
+    labels.forEach(function(item, i) {
+      var el = document.getElementById('t-' + i);
+      if (el) { el.textContent = String(item.val).padStart(2, '0'); }
+    });
+  }
+}
+updateTimer();
+setInterval(updateTimer, 1000);
+
+/* ═══════════════════════════════════════
+   FLOATING HEARTS
+═══════════════════════════════════════ */
+var canvas = document.getElementById('hearts-canvas');
+var heartChars = ['\u{1F497}', '\u{1F495}', '\u{1F338}', '\u2728', '\u{1F496}', '\u2764\uFE0F', '\u{1F493}'];
+for (var hi = 0; hi < 18; hi++) {
+  var h = document.createElement('span');
+  h.className = 'heart';
+  h.textContent = heartChars[hi % heartChars.length];
+  h.style.left = (Math.random() * 100) + '%';
+  h.style.bottom = (-10 - Math.random() * 20) + '%';
+  h.style.animationDuration = (8 + Math.random() * 14) + 's';
+  h.style.animationDelay = (Math.random() * 12) + 's';
+  h.style.fontSize = (0.8 + Math.random() * 1.2) + 'rem';
+  canvas.appendChild(h);
+}
+
+/* ═══════════════════════════════════════
+   SCROLL FADE-IN
+═══════════════════════════════════════ */
+var observer = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
+
+/* ═══════════════════════════════════════
+   TIMELINE, GALLERY, FLIP CARDS, COUPONS
+═══════════════════════════════════════ */
+// Timeline
+var milestoneContainer = document.getElementById('milestones');
+DATA.milestones.forEach(function(m, i) {
+  var div = document.createElement('div');
+  div.className = 'relative flex items-start gap-6 fade-in ' + (i % 2 === 0 ? 'sm:flex-row' : 'sm:flex-row-reverse');
+  div.innerHTML =
+    '<div class="flex-none w-10 h-10 rounded-full bg-gradient-to-br from-rose-300 to-pink-400 flex items-center justify-center shadow-md z-10 mt-1 shrink-0"><span class="text-white text-sm">\u{1F338}</span></div>' +
+    '<div class="bg-white rounded-2xl p-5 shadow-md shadow-rose-100 border border-rose-50 flex-1">' +
+      '<p class="font-sans text-xs text-rose-400 uppercase tracking-widest mb-1">' + m.date + '</p>' +
+      '<h3 class="font-serif text-xl text-rose-800 mb-2">' + m.title + '</h3>' +
+      '<p class="font-sans text-sm text-rose-600 leading-relaxed">' + m.desc + '</p>' +
+    '</div>';
+  milestoneContainer.appendChild(div); observer.observe(div);
+});
+
+// Gallery
+var polaroidGrid = document.getElementById('polaroid-grid');
+var rotations = [-4, 3, -2, 5, -3, 2];
+DATA.photos.forEach(function(p, i) {
+  var wrapper = document.createElement('div'); wrapper.className = 'fade-in';
+  var card = document.createElement('div'); card.className = 'polaroid relative';
+  card.style.transform = 'rotate(' + rotations[i % rotations.length] + 'deg)';
+  card.innerHTML =
+    '<div class="relative overflow-hidden"><img src="' + p.src + '" alt="Memory" loading="lazy" />' +
+    '<div class="polaroid-caption"><span class="font-serif text-rose-800 text-sm italic">' + p.caption + '</span></div></div>' +
+    '<p class="font-script text-rose-400 text-base text-center mt-1 pb-1">' + p.caption + '</p>';
+  card.addEventListener('click', function() { openLightbox(p.src); });
+  wrapper.appendChild(card); polaroidGrid.appendChild(wrapper); observer.observe(wrapper);
+});
+
+// Flip Cards
+var flipGrid = document.getElementById('flip-grid');
+DATA.reasons.forEach(function(r) {
+  var wrapper = document.createElement('div'); wrapper.className = 'flip-card fade-in'; wrapper.style.height = '160px';
+  wrapper.innerHTML =
+    '<div class="flip-card-inner">' +
+      '<div class="flip-front bg-gradient-to-br from-rose-100 to-pink-100 flex flex-col items-center justify-center p-4"><span class="text-3xl mb-2">' + r.icon + '</span><p class="font-serif text-rose-700 text-base text-center font-semibold">' + r.front + '</p><p class="font-sans text-rose-400 mt-2 tracking-wide uppercase" style="font-size:10px">Tap to reveal</p></div>' +
+      '<div class="flip-back bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center p-5"><p class="font-serif text-white text-sm text-center leading-relaxed italic">"' + r.back + '"</p></div>' +
+    '</div>';
+  wrapper.addEventListener('click', function() { wrapper.classList.toggle('flipped'); });
+  flipGrid.appendChild(wrapper); observer.observe(wrapper);
+});
+
+// Coupons
+var couponsGrid = document.getElementById('coupons-grid');
+DATA.coupons.forEach(function(c, i) {
+  var card = document.createElement('div'); card.className = 'coupon p-6 fade-in flex items-start gap-5'; card.id = 'coupon-' + i;
+  card.innerHTML =
+    '<div class="flex-none text-4xl">' + c.emoji + '</div>' +
+    '<div class="flex-1">' +
+      '<div class="flex items-center gap-3 mb-1"><h3 class="font-serif text-xl text-rose-800">' + c.title + '</h3><span class="coupon-stamp">REDEEMED</span></div>' +
+      '<p class="font-sans text-sm text-rose-500 leading-relaxed mb-1">' + c.desc + '</p><p class="font-sans text-xs text-rose-300 italic">' + c.expiry + '</p>' +
+    '</div>' +
+    '<div class="flex-none"><button id="coupon-btn-' + i + '" onclick="redeemCoupon(' + i + ')" class="font-sans text-xs font-medium text-white bg-rose-400 hover:bg-rose-500 transition rounded-full px-4 py-2 whitespace-nowrap shadow-sm">Redeem</button></div>';
+  couponsGrid.appendChild(card); observer.observe(card);
+});
+
+function redeemCoupon(i) {
+  var card = document.getElementById('coupon-' + i); var btn = document.getElementById('coupon-btn-' + i);
+  if (card.classList.contains('redeemed')) return;
+  openModal('coupon-modal');
+  setTimeout(function() {
+    card.classList.add('redeemed'); btn.textContent = 'Redeemed'; btn.disabled = true;
+    btn.classList.replace('bg-rose-400', 'bg-rose-200'); btn.classList.remove('hover:bg-rose-500');
+  }, 300);
+}
+
+/* ═══════════════════════════════════════
+   VIRTUAL BOUQUET (DRAGGABLE & ROTATABLE)
+═══════════════════════════════════════ */
+let flowerCount = 0;
+let activeFlower = null;
+let isDragging = false;
+let startX, startY, initialLeft, initialTop;
+
+function addFlower(emoji) {
+  const canvas = document.getElementById('bouquet-canvas');
+  const f = document.createElement('div');
+  f.className = 'flower text-5xl';
+  f.textContent = emoji;
+  
+  // Set initial random rotation
+  const angle = (Math.random() * 40) - 20;
+  f.dataset.rot = angle;
+  f.style.transform = `rotate(${angle}deg)`;
+  
+  // Set initial position near the bottom center
+  const rect = canvas.getBoundingClientRect();
+  const flowerSize = 48; // roughly 5xl text size
+  
+  // Center X with some random variation
+  const x = (rect.width / 2) - (flowerSize / 2) + ((Math.random() * 80) - 40);
+  // Bottom Y with some variation
+  const y = rect.height - flowerSize - 20 - (Math.random() * 40);
+
+  f.style.left = x + 'px';
+  f.style.top = y + 'px';
+  f.style.zIndex = 10 + flowerCount;
+  
+  // Event listeners for Dragging
+  f.addEventListener('mousedown', dragStart);
+  f.addEventListener('touchstart', dragStart, { passive: false });
+
+  canvas.appendChild(f);
+  flowerCount++;
+  
+  // Hide success message and download button if modifying again
+  document.getElementById('bouquet-message').classList.add('hidden');
+  document.getElementById('download-bouquet-btn').classList.add('hidden');
+}
+
+// Global Drag Listeners
+document.addEventListener('mousemove', dragMove);
+document.addEventListener('touchmove', dragMove, { passive: false });
+document.addEventListener('mouseup', dragEnd);
+document.addEventListener('touchend', dragEnd);
+
+function dragStart(e) {
+  if(e.type === 'touchstart') { e.preventDefault(); } // Prevents scroll on mobile
+  
+  activeFlower = e.target;
+  isDragging = false;
+  activeFlower.classList.add('grabbing');
+  
+  // Bring the dragged flower to the front
+  flowerCount++;
+  activeFlower.style.zIndex = 10 + flowerCount;
+
+  const clientX = e.clientX || e.touches[0].clientX;
+  const clientY = e.clientY || e.touches[0].clientY;
+
+  startX = clientX;
+  startY = clientY;
+  
+  // Parse current left/top values
+  initialLeft = parseFloat(activeFlower.style.left) || 0;
+  initialTop = parseFloat(activeFlower.style.top) || 0;
+}
+
+function dragMove(e) {
+  if (!activeFlower) return;
+
+  const clientX = e.clientX || e.touches[0].clientX;
+  const clientY = e.clientY || e.touches[0].clientY;
+
+  const dx = clientX - startX;
+  const dy = clientY - startY;
+
+  // Determine if it's an intentional drag vs a slight jiggle during a click
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+    isDragging = true;
+  }
+
+  if (isDragging) {
+    if(e.type === 'touchmove') e.preventDefault(); // Stop page scroll
+    
+    // Bounds checking
+    const canvas = document.getElementById('bouquet-canvas');
+    const rect = canvas.getBoundingClientRect();
+    
+    let newLeft = initialLeft + dx;
+    let newTop = initialTop + dy;
+
+    // Keep roughly within container
+    newLeft = Math.max(-20, Math.min(newLeft, rect.width - 20));
+    newTop = Math.max(-20, Math.min(newTop, rect.height - 30));
+
+    activeFlower.style.left = newLeft + 'px';
+    activeFlower.style.top = newTop + 'px';
+  }
+}
+
+function dragEnd(e) {
+  if (!activeFlower) return;
+  
+  activeFlower.classList.remove('grabbing');
+
+  // If the user didn't really move the mouse, treat it as a click to ROTATE
+  if (!isDragging) {
+    let currentRot = parseFloat(activeFlower.dataset.rot) || 0;
+    currentRot += 22.5; // Rotate by 22.5 degrees on tap
+    activeFlower.dataset.rot = currentRot;
+    activeFlower.style.transform = `rotate(${currentRot}deg)`;
+  }
+
+  activeFlower = null;
+}
+
+function finishBouquet() {
+  const msg = document.getElementById('bouquet-message');
+  const btn = document.getElementById('download-bouquet-btn');
+  
+  if (flowerCount === 0) {
+    msg.innerHTML = "Don't forget to pick some flowers first! \u2728";
+    btn.classList.add('hidden');
+  } else {
+    msg.innerHTML = "A perfect bouquet for my favorite person. \uD83C\uDF80<br><span class='text-sm font-sans mt-2 block text-rose-400'>Virtual gift unwrapped!</span>";
+    btn.classList.remove('hidden');
+  }
+  msg.classList.remove('hidden');
+  setTimeout(function() { msg.classList.add('opacity-100'); }, 50);
+}
+
+function downloadBouquet() {
+  const canvasArea = document.getElementById('bouquet-canvas');
+  // Briefly remove the text-shadow for a cleaner render in html2canvas if needed
+  html2canvas(canvasArea, { 
+    backgroundColor: '#fffcfd', // Solid background for nice PNG
+    scale: 2 // High resolution
+  }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = 'my-virtual-bouquet.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+}
+
+/* ═══════════════════════════════════════
+   MODALS & LIGHTBOX
+═══════════════════════════════════════ */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(function(m) { closeModal(m.id); });
+    closeLightbox();
+  }
+});
+function openLightbox(src) { document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').classList.add('open'); }
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+/* ═══════════════════════════════════════
+   MUSIC
+═══════════════════════════════════════ */
+var audio     = document.getElementById('bg-music');
+var playIcon  = document.getElementById('play-icon');
+var pauseIcon = document.getElementById('pause-icon');
+document.getElementById('music-btn').addEventListener('click', function() {
+  if (audio.paused) {
+    audio.play().catch(function() {}); playIcon.style.display = 'none'; pauseIcon.style.display = '';
+  } else {
+    audio.pause(); playIcon.style.display = ''; pauseIcon.style.display = 'none';
+  }
+});
+
+setTimeout(function() {
+  document.querySelectorAll('.fade-in:not(.visible)').forEach(function(el) { observer.observe(el); });
+}, 300);
+
+/* ═══════════════════════════════════════
+   ENVELOPE REVEAL
+═══════════════════════════════════════ */
+function unsealEnvelope() {
+  const overlay = document.getElementById('envelope-overlay');
+  const content = document.getElementById('envelope-content');
+  const heroReveal = document.getElementById('hero-reveal');
+  
+  // 1. Play the music automatically
+  var audio = document.getElementById('bg-music');
+  var playIcon = document.getElementById('play-icon');
+  var pauseIcon = document.getElementById('pause-icon');
+  
+  audio.play().catch(function(e) {
+    console.log("Audio play failed, user might need to click the floating button manually", e);
+  });
+  
+  // Update the floating button icons to show it's playing
+  playIcon.style.display = 'none';
+  pauseIcon.style.display = '';
+
+  // 2. Shrink and fade the letter card
+  content.style.transform = 'scale(0.9) translateY(-20px)';
+  content.style.opacity = '0';
+  content.style.transition = 'all 0.4s ease';
+  
+  // 3. Slide the overlay UP and drop the Hero section DOWN
+  setTimeout(function() {
+    // Slide the whole cover screen up like a curtain
+    overlay.style.transform = 'translateY(-100%)';
+    overlay.style.transition = 'transform 0.8s cubic-bezier(0.7, 0, 0.3, 1)';
+    
+    // As the curtain rises, make the Happy Anniversary text drop in
+    setTimeout(function() {
+      heroReveal.classList.remove('opacity-0', '-translate-y-20');
+      heroReveal.classList.add('opacity-100', 'translate-y-0');
+      
+      // Completely remove the overlay from the layout after the animation finishes
+      setTimeout(function() {
+        overlay.style.display = 'none';
+        
+        // Re-trigger the scroll animations so the rest of the site loads normally
+        document.querySelectorAll('.fade-in:not(.visible)').forEach(function(el) { observer.observe(el); });
+      }, 800);
+      
+    }, 200); // Slight delay so the text drops exactly as she looks at it
+    
+  }, 400); // Wait for the letter to fade before raising the curtain
+}
+</script>
+</body>
+</html>
